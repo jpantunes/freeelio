@@ -1,4 +1,4 @@
-pragma solidity ^0.4.17;
+pragma solidity ^0.4.18;
 
 import './Project.sol';
 
@@ -7,33 +7,30 @@ contract Freeelio {
 
     address public owner;
 
-    struct CharityStruct {
+    struct ProviderStruct {
         bytes32 name;
         bytes32 description;
         bytes32 imageUrl;
-        uint256 balance;
     }
 
-    mapping(address => CharityStruct) public charity;
+    mapping(address => ProviderStruct) public provider;
 
     modifier onlyOwner() {require(msg.sender == owner); _;}
-    modifier onlyCharity() {require(charity[msg.sender].name != 0x00); _;}
 
     event ProjectLog(
         address indexed _projectOwner,
-        address _projectAddr,
+        address indexed _projectAddr,
         uint256 _activatedAmount,
-        uint256 _deadline,
-        bytes32 _causeName);
+        bytes32 _projectName);
 
     event ContributionLog(
         address indexed _patron,
         address indexed _projectAddr,
         uint256 _contribution);
 
-    event NewCharityLog(
-        address indexed _charityAddr,
-        bytes32 _charityName,
+    event NewProviderLog(
+        address indexed _ProviderAddr,
+        bytes32 _ProviderName,
         bytes32 _description,
         bytes32 _imageUrl);
 
@@ -45,8 +42,8 @@ contract Freeelio {
         owner = msg.sender;
     }
 
-    // add a new charity record
-    function addCharity(
+    // add a new Provider record
+    function addProvider(
         address _wallet,
         bytes32 _name,
         bytes32 _description,
@@ -55,11 +52,11 @@ contract Freeelio {
         onlyOwner
         returns(bool)
     {
-        charity[_wallet].name = _name;
-        charity[_wallet].description = _description;
-        charity[_wallet].imageUrl = _imageUrl;
+        provider[_wallet].name = _name;
+        provider[_wallet].description = _description;
+        provider[_wallet].imageUrl = _imageUrl;
 
-        NewCharityLog(
+        NewProviderLog(
             _wallet,
             _name,
             _description,
@@ -69,35 +66,29 @@ contract Freeelio {
         return true;
     }
 
-    //1514723489 ~= 2017-12-31@12:30 // 10000000, 1514723489, "test"
-    //_projectOwner will be able to withdraw donated funds 
+    //onlyProvider's address should be able to withdraw donated funds
     function createProject(
-        address _projectOwner,
         uint256 _activatedAmount,
-        uint256 _deadline,
-        bytes32 _causeName)
+        bytes32 _projectName)
         public
-        onlyCharity
         returns (address projectAddr)
     {
-        require(_activatedAmount > 0x00); //must have a funding target greater than zero
-        require(_deadline >= now); //in days //require(_deadline >= now + 900) ~15 minutes from now
-        require(_causeName.length > 0x00); //must have a name
+        require(_activatedAmount > 0x00); //must have a target activated amount greater than zero
+        require(_projectName.length > 0x00); //must have a name
 
         projectAddr = new Project(
-            _projectOwner,
+            msg.sender,
             _activatedAmount,
-            _deadline,
-            _causeName
+            _projectName
         );
 
         //filter these events to get list of projects in F/E
+        //msg.sender is projectOwner should be provider
         ProjectLog(
-            _projectOwner,
+            msg.sender,
             projectAddr,
             _activatedAmount,
-            _deadline,
-            _causeName
+            _projectName
         );
         return projectAddr;
     }
