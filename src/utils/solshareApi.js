@@ -20,7 +20,6 @@ module.exports = function () {
             let request = require('request');
             request({url: SolshareApi.getDonationBoxesUrl(), json:true}, function (error, response, body) {
                 let solboxes = Object.keys(body[1].solboxes).map(function (key) {
-                    console.log(Object.values(body[1].solboxes[key]));
                     return Object.values(body[1].solboxes[key]);
                 });
 
