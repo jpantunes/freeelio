@@ -7,6 +7,7 @@ import './css/oswald.css'
 import './css/open-sans.css'
 import './css/pure-min.css'
 import './App.css'
+import {getDonationBoxes} from "./utils/solshareApi";
 
 class App extends Component {
   constructor(props) {
@@ -30,6 +31,10 @@ class App extends Component {
   }
 
   componentWillMount() {
+
+    getDonationBoxes(function (response) {
+      console.log(response);
+    });
 
     getWeb3
     .then(results => {
