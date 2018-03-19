@@ -17,6 +17,12 @@ contract Freeelio {
 
     modifier onlyOwner() {require(msg.sender == owner); _;}
 
+    modifier onlyFreeelioProjects(address _addr) {
+      Project proj = Project(_addr);
+      //require(proj.config.projectOwner == address(this));
+      _;
+    }
+
     event ProjectLog(
         address indexed _projectOwner,
         address indexed _projectAddr,
@@ -30,6 +36,7 @@ contract Freeelio {
 
     event NewProviderLog(
         address indexed _ProviderAddr,
+        address indexed _projectAddr,
         bytes32 _ProviderName,
         bytes32 _description,
         bytes32 _imageUrl);
@@ -42,14 +49,15 @@ contract Freeelio {
         owner = msg.sender;
     }
 
-    // add a new Provider record
+    // Provider self-registration checks existing project
     function addProvider(
         address _wallet,
+        address _projectAddr,
         bytes32 _name,
         bytes32 _description,
         bytes32 _imageUrl)
         public
-        onlyOwner
+        onlyFreeelioProjects(_projectAddr)
         returns(bool)
     {
         provider[_wallet].name = _name;
@@ -58,6 +66,7 @@ contract Freeelio {
 
         NewProviderLog(
             _wallet,
+            _projectAddr,
             _name,
             _description,
             _imageUrl
@@ -66,11 +75,12 @@ contract Freeelio {
         return true;
     }
 
-    //onlyProvider's address should be able to withdraw donated funds
+    //onlyOwner (Freeelio) can create new projects
     function createProject(
         uint256 _activatedAmount,
         bytes32 _projectName)
         public
+        onlyOwner
         returns (address projectAddr)
     {
         require(_activatedAmount > 0x00); //must have a target activated amount greater than zero

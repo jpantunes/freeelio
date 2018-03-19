@@ -7,7 +7,17 @@ import './css/oswald.css'
 import './css/open-sans.css'
 import './css/pure-min.css'
 import './App.css'
-import {getDonationBoxes} from "./utils/solshareApi";
+// API
+// import {getDonationBoxes} from "./utils/solshareApi";
+
+// Metering
+import Metering from "./utils/metering"
+// Registration
+import Register from "./utils/register"
+// Launch Project
+import NewProject from "./utils/newProject"
+// Donate to Project
+// import Donate from "./utils/donate"
 
 class App extends Component {
   constructor(props) {
@@ -22,19 +32,23 @@ class App extends Component {
       activatedAmount: '',
       contribution: '',
       hubAddr: '',
-      web3: null
+      web3: null,
+      selectedView: ''
     }
 
     this.handleInputChange = this.handleInputChange.bind(this)
     this.fundProject = this.fundProject.bind(this)
     this.createContract = this.createContract.bind(this)
+    this.onMenuClick = this.onMenuClick.bind(this)
+    this.changeView = this.changeView.bind(this)
   }
 
   componentWillMount() {
 
-    getDonationBoxes(function (response) {
-      console.log(response);
-    });
+    // API
+    // getDonationBoxes(function (response) {
+    //   console.log(response);
+    // });
 
     getWeb3
     .then(results => {
@@ -75,7 +89,7 @@ class App extends Component {
       })
     })
   }
-//this should be restricted to on-boarded providers authenticated with their eth-addr
+  //only Freeelio owner addr is allowed at contract level
   createContract(activatedAmount, projectName) {
 
     const contract = require('truffle-contract')
@@ -146,31 +160,81 @@ class App extends Component {
     console.log(key, value)
   }
 
+  onMenuClick(event, menuItem) {
+
+    switch(menuItem) {
+      case 'Donate':
+        this.setState({ selectedView: 'Donate'})
+
+        break;
+      case 'Register':
+        this.setState({ selectedView: 'Register'})
+
+        break;
+      case 'NewProject':
+        this.setState({ selectedView: 'NewProject'})
+
+        break;
+    }
+    console.log(menuItem)
+    console.log(this.state.selectedView)
+  }
+
+  changeView() {
+
+    // if (this.state.selectedView === "Donate") {
+    //     return  <div className="pure-u-1-1">
+    //               <h2>Donate to Project</h2>
+    //               <Donate />
+    //             </div>
+    // }
+
+    if (this.state.selectedView === "Register") {
+        return <div className="pure-u-1-1">
+                <h2>Register as a Service Provider</h2>
+                <Register />
+              </div>
+    }
+
+    if (this.state.selectedView === "NewProject") {
+        return <div className="pure-u-1-1">
+                <h2>Create Project</h2>
+                <NewProject />
+              </div>
+    }
+
+  }
 
   render() {
     return (
       <div className="App">
         <nav className="navbar pure-menu pure-menu-horizontal">
-            <a href="#" className="pure-menu-heading pure-menu-link">{this.state.projectCount} projects created!</a>
+            <div className="pure-menu pure-menu-horizontal">
+                <ul className="pure-menu-list">
+                    <li className="pure-menu-item">
+                        <a href="#" name="Donate" onClick={() => this.onMenuClick(event,'Donate')} className="pure-menu-link">Donate (Patron)</a>
+                    </li>
+                    <li className="pure-menu-item">
+                        <a href="#" name="Register" onClick={() => this.onMenuClick(event,'Register')} className="pure-menu-link">Register (Provider)</a>
+                    </li>
+                    <li className="pure-menu-item">
+                        <a href="#" name="NewProject" onClick={() => this.onMenuClick(event,'NewProject')} className="pure-menu-link">New Project (Freeelio)</a>
+                    </li>
+                </ul>
+            </div>
+
         </nav>
 
         <main className="container">
           <h1>Freeelio</h1>
-          <div className="pure-g">
+
             <div className="pure-u-1-1">
-              <h2>Create Project</h2>
-              <p><b>Project Name:</b> <input type="text" name="projectName" value={this.state.projectName} onChange={this.handleInputChange} style={{width: 500}} /></p>
-              <p><b>Initial Target Amount:</b> <input type="text" name="activatedAmount" value={this.state.activatedAmount} onChange={this.handleInputChange} style={{width: 100}} /></p>
-              <div className="Button">
-                <button className="Button" title="Create Project"
-                        onClick={() => { this.createContract(this.state.activatedAmount, this.state.projectName) }}>
-                  <i> Create! </i>
-                </button>
-              </div>
+                {this.changeView()}
             </div>
-          </div>
+
           <hr />
-          <h2>Browse Project catalogue</h2>
+          <h2>Browse Project Catalogue</h2>
+          <p><a href="#" className="pure-menu-heading pure-menu-link">{this.state.projectCount} projects ongoing</a></p>
           {
             this.state.projectList.map((project, index) => {
               return (
@@ -183,7 +247,7 @@ class App extends Component {
                   </div>
                   <div className="Button">
                     <b>Make a contribution in Ether:</b> <input type="text" name="contribution" value={this.state.contribution} onChange={this.handleInputChange} style={{width: 100}} /> {' '}
-                    <button className="Button {index}" title="Fund Project"
+                    <button className="pure-button pure-button-primary {index}" title="Fund Project"
                             onClick={() => this.fundProject(project.contractAddress, this.state.contribution) }>
                             <i> Give!</i>
                     </button>
@@ -192,6 +256,11 @@ class App extends Component {
               )
             })
           }
+          <h2>Current Service Provider Data</h2>
+          <div className="Metering">
+            <Metering />
+          </div>
+
         </main>
       </div>
   )}

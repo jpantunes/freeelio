@@ -21,6 +21,7 @@ contract Project {
 
     mapping(uint8 => MeterStruct) public meters;
     mapping(address => uint) public patronage;
+
     enum State { Running, Expired, Suspended }
     State public state;
 
