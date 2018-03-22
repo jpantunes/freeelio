@@ -1,4 +1,4 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.20;
 
 import './Project.sol';
 
@@ -7,26 +7,17 @@ contract Freeelio {
 
     address public owner;
 
-    struct ProviderStruct {
-        bytes32 name;
-        bytes32 description;
-        bytes32 imageUrl;
-    }
-
-    mapping(address => ProviderStruct) public provider;
-
-    modifier onlyOwner() {require(msg.sender == owner); _;}
-
-    modifier onlyFreeelioProjects(address _addr) {
-      Project proj = Project(_addr);
-      //require(proj.config.projectOwner == address(this));
-      _;
-    }
+    modifier isOwner() {require(msg.sender == owner); _;}
+    // modifier onlyFreeelioProjects(address _addr) {
+    //   Project proj = Project(_addr);
+    //   require(proj.projectOwner() == owner);
+    //   _;
+    // }//refactor this. keep a list of created projects and providers?
 
     event ProjectLog(
         address indexed _projectOwner,
         address indexed _projectAddr,
-        uint256 _activatedAmount,
+        uint256 _pledgedAmount,
         bytes32 _projectName);
 
     event ContributionLog(
@@ -39,7 +30,13 @@ contract Freeelio {
         address indexed _projectAddr,
         bytes32 _ProviderName,
         bytes32 _description,
-        bytes32 _imageUrl);
+        bytes32 _imageUrl,
+        bytes32 _apiURI);
+
+    event NewReadingLog(
+        address indexed _projectAddr,
+        address indexed _providerAddr,
+        bytes32 _hash);
 
     function () public {
 
@@ -49,61 +46,105 @@ contract Freeelio {
         owner = msg.sender;
     }
 
-    // Provider self-registration checks existing project
-    function addProvider(
-        address _wallet,
-        address _projectAddr,
-        bytes32 _name,
-        bytes32 _description,
-        bytes32 _imageUrl)
-        public
-        onlyFreeelioProjects(_projectAddr)
-        returns(bool)
-    {
-        provider[_wallet].name = _name;
-        provider[_wallet].description = _description;
-        provider[_wallet].imageUrl = _imageUrl;
-
-        NewProviderLog(
-            _wallet,
-            _projectAddr,
-            _name,
-            _description,
-            _imageUrl
-        );
-
-        return true;
-    }
-
     //onlyOwner (Freeelio) can create new projects
+    // 90001, "Help Bangladesh Fishing Village"
+    // gas 863765 txCost; 840061 exCost;
     function createProject(
-        uint256 _activatedAmount,
+        uint256 _pledgedAmount,
         bytes32 _projectName)
         public
-        onlyOwner
+        isOwner
         returns (address projectAddr)
     {
-        require(_activatedAmount > 0x00); //must have a target activated amount greater than zero
+        require(_pledgedAmount > 0x00); //must have a pledged amount greater than zero
         require(_projectName.length > 0x00); //must have a name
 
         projectAddr = new Project(
-            msg.sender,
-            _activatedAmount,
+            address(this),
+            _pledgedAmount,
             _projectName
         );
 
         //filter these events to get list of projects in F/E
         //msg.sender is projectOwner should be provider
-        ProjectLog(
-            msg.sender,
+        emit ProjectLog(
+            address(this),
             projectAddr,
-            _activatedAmount,
+            _pledgedAmount,
             _projectName
         );
         return projectAddr;
     }
 
+    // Provider self-registration checks existing project
+    // <projectAddr>|| "0x3cf84b2696bcf70cc87e30661a028d947465892a", "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", "Solshare", "Solshare Bangladesh", "http://test.com/logo.jpg", "http://test.com/api/"
+    // gas 115790 txCost; 86646 exCost;
+    function addProvider(
+        address _projectAddr,
+        address _providerAddr,
+        bytes32 _name,
+        bytes32 _description,
+        bytes32 _imageUrl,
+        bytes32 _apiURI)
+        public
+        returns(bool)
+    {
+        require(_providerAddr != 0x00);
+        require(_name != 0x00);
+        require(_description != 0x00);
+        require(_imageUrl != 0x00);
+        require(_apiURI != 0x00);
+
+
+        Project proj = Project(_projectAddr);
+        if (!proj.addProvider.gas(1000000)(_providerAddr, _name, _description, _imageUrl, _apiURI)) {
+            return false;
+        }
+
+        emit NewProviderLog(
+            _providerAddr,
+            _projectAddr,
+            _name,
+            _description,
+            _imageUrl,
+            _apiURI
+        );
+
+        return true;
+    }
+
+    // add reading to project
+    // <projectAddr> || "0x3cf84b2696bcf70cc87e30661a028d947465892a", "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", [[1,1,1,1,1], [2,2,2,2,2]]
+    // gas 230141 txCost; 203749 exCost;
+    function addProjectReading(
+        address _projectAddr,
+        address _providerAddr,
+        uint32[5][] _reading)
+        public
+        //project.addReading checks if _providerAddr is a known provider...
+        returns(bool success)
+    {
+        require(_projectAddr != address(0x00));
+        require(_providerAddr != address(0x00));
+        require(_reading.length > 0x00);
+
+        Project proj = Project(_projectAddr);
+        if (!proj.addReading.gas(1000000)(_providerAddr, _reading)) {
+            revert();
+        }
+
+        bytes32 readingHash = keccak256(_reading);
+
+        emit NewReadingLog(
+                _projectAddr,
+                _providerAddr,
+                readingHash);
+
+        return true;
+    }
+
     //anyone can contribute
+    // gas 55471 txCost; 32791 exCost;
     function contribute(address _projectAddr)
         public
         payable
@@ -114,11 +155,11 @@ contract Freeelio {
             revert();
         } //~0.27 cents
 
-        ContributionLog(msg.sender, _projectAddr, msg.value);
+        emit ContributionLog(msg.sender, _projectAddr, msg.value);
         return true;
     }
 
-    function kill() public onlyOwner {
+    function kill() public isOwner {
         selfdestruct(owner);
     }
 

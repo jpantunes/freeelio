@@ -1,37 +1,34 @@
-pragma solidity ^0.4.18;
+pragma solidity ^0.4.20;
 
 
 contract Project {
 
-    struct ProjectStruct {
-        address projectOwner;
-        uint256 activatedAmount;
-        bytes32 projectName;
+    address public projectOwner;
+    uint256 public pledgedAmount;
+    bytes32 public projectName;
+
+    struct ProviderStruct {
+        uint32[5][] readings;
+        uint256 totalBoughtTk;
+        uint256 totalRechargeAmountTk;
+        uint256 donationsReceivedTk;
+        bytes32 name;
+        bytes32 description;
+        bytes32 imageUrl;
+        bytes32 apiURI;
     }
 
-    ProjectStruct public config;
-
-    struct MeterStruct {
-        uint8 solShareID; //11000001 - 11999999
-        uint8 gridID; //1 - 9999
-        uint8 comsumptionWh; //0 - 999999
-        uint8 rechargeAmountTk; //0 - 999999
-        bool active;
-    }
-
-    mapping(uint8 => MeterStruct) public meters;
+    mapping(address => ProviderStruct) provider;
     mapping(address => uint) public patronage;
 
     enum State { Running, Expired, Suspended }
     State public state;
 
-    modifier isPatron() {require(patronage[msg.sender] > 0); _;}
-    modifier isOwner() {require(msg.sender == config.projectOwner); _;}
     modifier inState(State _state) {require(state == _state); _;}
+    modifier isOwner() {require(projectOwner == msg.sender); _;}
+    modifier isProvider(address _providerAddr) {require(provider[_providerAddr].name != 0x00); _;}
 
-    event FundingLog(address indexed _patron, uint256 _amount);
-    event RefundLog(address indexed _patron, uint256 _amount);
-    event PayoutLog(address indexed _projectOwner, uint256 _amount);
+    event debug(address _addr, uint256 _uint, bytes32 _bytes32);
 
     //fallback
     function() public {
@@ -39,44 +36,72 @@ contract Project {
     }
 
     //constructor
+    // gas 1113854 txCost; 804286 exCost;
+    // "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", 90000, "Help Bangladesh Farming Village"
     function Project(
         address _projectOwner,
-        uint256 _activatedAmount,
+        uint256 _pledgedAmount,
         bytes32 _projectName)
         public
     {
-        config.projectOwner = _projectOwner;
-        config.activatedAmount = _activatedAmount;
-        config.projectName = _projectName;
+        projectOwner = _projectOwner;
+        pledgedAmount = _pledgedAmount;
+        projectName = _projectName;
         state = State.Running;
     }
 
-    //new reading stub. depending on frequency, could be a case
-    //for state channels;
-    function addReading(
-        uint8 _solShareID,
-        uint8 _gridID,
-        uint8 _comsumptionWh,
-        uint8 _rechargeAmountTk)
+    // "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", "Solshare", "Solshare Bangladesh", "http://test.com/logo.jpg", "http://test.com/api/"
+    // gas 109207 txCost;81471 exCost;
+    function addProvider(
+        address _providerAddr,
+        bytes32 _name,
+        bytes32 _description,
+        bytes32 _imageUrl,
+        bytes32 _apiURI)
         public
+        isOwner
+        returns(bool success)
+    {
+        require(_name != 0x00);
+        require(_description != 0x00);
+        require(_imageUrl != 0x00);
+        require(_apiURI != 0x00);
+
+        provider[_providerAddr].name = _name;
+        provider[_providerAddr].description = _description;
+        provider[_providerAddr].imageUrl = _imageUrl;
+        provider[_providerAddr].apiURI = _apiURI;
+
+        // debug(msg.sender, 0, 0);
+        return true;
+    }
+
+    //new reading stub. depending on frequency, could be a case for state channels;
+    // "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", [[1,1,1,1,1], [2,2,2,2,2]]
+    // _reading[i][0] = solGridID
+    // _reading[i][1] = gridID
+    // _reading[i][2] = monthBoughtWh
+    // _reading[i][3] = monthBoughtTk
+    // _reading[i][4] = rechargeAmountTk
+    // gas 221739 txCost; 196755 exCost;
+    function addReading(
+        address _providerAddr,
+        uint32[5][] _reading)
+        public
+        isProvider(_providerAddr)
         returns (bool success)
     {
-        // solShareID is between 11000001 - 11999999
-        // gridID is between 1 - 9999
-        // comsumptionWh is between 0 - 999999
-        // rechargeAmountTk is between 0 - 999999
 
-        meters[_solShareID].gridID = _gridID;
-        meters[_solShareID].comsumptionWh = _comsumptionWh;
-        meters[_solShareID].rechargeAmountTk = _rechargeAmountTk;
-
-        //this needs to be the tk to euro conversion
-        config.activatedAmount += _rechargeAmountTk;
+        for (uint8 i = 0; i < _reading.length; i ++) {
+            provider[_providerAddr].readings.push(_reading[i]);
+            provider[_providerAddr].totalBoughtTk += _reading[i][3];
+            provider[_providerAddr].totalRechargeAmountTk += _reading[i][4];
+        }
 
         return true;
     }
 
-    //available to anyone
+    //available to anyone the project
     function fund(address _patron)
         public
         inState(State.Running)
@@ -87,41 +112,27 @@ contract Project {
 
         patronage[_patron] += msg.value;
 
-        FundingLog(_patron, msg.value);
         return true;
     }
 
-    //available to projectOwner at any point as long as project is running
-    function payout()
-        public
-        isOwner
-        inState(State.Running)
-        returns (bool success)
+    // "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", 0
+    function getProviderReading(address _providerAddr, uint _index)
+        external
+        view
+        returns(uint32[5] reading)
     {
-        uint256 amount = this.balance;
+        require(_index <= provider[_providerAddr].readings.length-1);
 
-        config.projectOwner.transfer(amount);
-
-        PayoutLog(msg.sender, amount);
-        return true;
+        return provider[_providerAddr].readings[_index];
     }
 
-    //available to patrons after contributedAmount, if not Suspended
-    function refund(address _patron)
-        public
-        isPatron
-        //inState(State.Expired)
-        returns (bool success)
+    // "0xca35b7d915458ef540ade6068dfe2f44e8fa733c"
+    function getProviderReadingCount(address _providerAddr)
+        external
+        view
+        returns(uint count)
     {
-        require(_patron != 0x00);
-
-        uint256 amount = patronage[_patron];
-        patronage[_patron] = 0x00;
-
-        _patron.transfer(amount);
-
-        RefundLog(_patron, amount);
-        return true;
+        return provider[_providerAddr].readings.length;
     }
 
     function suspendProject()
@@ -138,14 +149,6 @@ contract Project {
         inState(State.Suspended)
     {
       state = State.Running;
-    }
-
-    function getActivatedAmount()
-        external
-        view
-        returns (uint256)
-    {
-        return config.activatedAmount;
     }
 
 }
