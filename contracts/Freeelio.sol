@@ -1,4 +1,4 @@
-pragma solidity ^0.4.20;
+pragma solidity ^0.4.19;
 
 import './Project.sol';
 
@@ -14,16 +14,16 @@ contract Freeelio {
     //   _;
     // }//refactor this. keep a list of created projects and providers?
 
-    event ProjectLog(
-        address indexed _projectOwner,
-        address indexed _projectAddr,
-        uint256 _pledgedAmount,
-        bytes32 _projectName);
-
     event ContributionLog(
         address indexed _patron,
         address indexed _projectAddr,
         uint256 _contribution);
+
+    event NewProjectLog(
+        address indexed _projectOwner,
+        address indexed _projectAddr,
+        uint256 _pledgedAmount,
+        bytes32 _projectName);
 
     event NewProviderLog(
         address indexed _ProviderAddr,
@@ -66,8 +66,7 @@ contract Freeelio {
         );
 
         //filter these events to get list of projects in F/E
-        //msg.sender is projectOwner should be provider
-        emit ProjectLog(
+        NewProjectLog(
             address(this),
             projectAddr,
             _pledgedAmount,
@@ -101,7 +100,7 @@ contract Freeelio {
             return false;
         }
 
-        emit NewProviderLog(
+        NewProviderLog(
             _providerAddr,
             _projectAddr,
             _name,
@@ -135,7 +134,7 @@ contract Freeelio {
 
         bytes32 readingHash = keccak256(_reading);
 
-        emit NewReadingLog(
+        NewReadingLog(
                 _projectAddr,
                 _providerAddr,
                 readingHash);
@@ -155,7 +154,7 @@ contract Freeelio {
             revert();
         } //~0.27 cents
 
-        emit ContributionLog(msg.sender, _projectAddr, msg.value);
+        ContributionLog(msg.sender, _projectAddr, msg.value);
         return true;
     }
 

@@ -5,6 +5,6 @@ module.exports = function(deployer) {
     return Freeelio.deployed();
   }).then(function(instance) {
     hub = instance;
-    return hub.createProject(9000, "Village One in Bangladesh", { from: web3.eth.accounts[0], gas: 3000000 });
+    return hub.createProject(9000, "Boost small Bangladeshi Businesses in rural areas", { from: web3.eth.accounts[0], gas: 3000000 });
   })
 };
