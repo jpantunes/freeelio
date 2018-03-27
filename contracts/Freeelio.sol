@@ -4,15 +4,12 @@ import './Project.sol';
 
 
 contract Freeelio {
-
+    //keeps a list of created projects and providers and readings in the logs
     address public owner;
 
+    mapping(address => address[]) public projectProviders;
+
     modifier isOwner() {require(msg.sender == owner); _;}
-    // modifier onlyFreeelioProjects(address _addr) {
-    //   Project proj = Project(_addr);
-    //   require(proj.projectOwner() == owner);
-    //   _;
-    // }//refactor this. keep a list of created projects and providers?
 
     event ContributionLog(
         address indexed _patron,
@@ -26,9 +23,9 @@ contract Freeelio {
         bytes32 _projectName);
 
     event NewProviderLog(
-        address indexed _ProviderAddr,
         address indexed _projectAddr,
-        bytes32 _ProviderName,
+        address indexed _providerAddr,
+        bytes32 _providerName,
         bytes32 _description,
         bytes32 _imageUrl,
         bytes32 _apiURI);
@@ -36,7 +33,7 @@ contract Freeelio {
     event NewReadingLog(
         address indexed _projectAddr,
         address indexed _providerAddr,
-        bytes32 _hash);
+        uint32[5][] _reading);
 
     function () public {
 
@@ -76,7 +73,7 @@ contract Freeelio {
     }
 
     // Provider self-registration checks existing project
-    // <projectAddr>|| "0x3cf84b2696bcf70cc87e30661a028d947465892a", "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", "Solshare", "Solshare Bangladesh", "http://test.com/logo.jpg", "http://test.com/api/"
+    // <projectAddr>|| "0x755014da263fc47d238078bb47d217f743e5b6a5", "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", "Solshare", "Solshare Bangladesh", "http://test.com/logo.jpg", "http://test.com/api/"
     // gas 115790 txCost; 86646 exCost;
     function addProvider(
         address _projectAddr,
@@ -96,13 +93,19 @@ contract Freeelio {
 
 
         Project proj = Project(_projectAddr);
-        if (!proj.addProvider.gas(1000000)(_providerAddr, _name, _description, _imageUrl, _apiURI)) {
-            return false;
+        if (!proj.addProvider.gas(3000000)(
+                _providerAddr,
+                _name,
+                _description,
+                _imageUrl,
+                _apiURI))
+        {
+            revert();
         }
 
         NewProviderLog(
-            _providerAddr,
             _projectAddr,
+            _providerAddr,
             _name,
             _description,
             _imageUrl,
@@ -113,7 +116,7 @@ contract Freeelio {
     }
 
     // add reading to project
-    // <projectAddr> || "0x3cf84b2696bcf70cc87e30661a028d947465892a", "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", [[1,1,1,1,1], [2,2,2,2,2]]
+    // <projectAddr> || "0x755014da263fc47d238078bb47d217f743e5b6a5", "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", [[1,1,1,1,1], [2,2,2,2,2]]
     // gas 230141 txCost; 203749 exCost;
     function addProjectReading(
         address _projectAddr,
@@ -128,16 +131,14 @@ contract Freeelio {
         require(_reading.length > 0x00);
 
         Project proj = Project(_projectAddr);
-        if (!proj.addReading.gas(1000000)(_providerAddr, _reading)) {
+        if (!proj.addReading.gas(3000000)(_providerAddr, _reading)) {
             revert();
         }
-
-        bytes32 readingHash = keccak256(_reading);
 
         NewReadingLog(
                 _projectAddr,
                 _providerAddr,
-                readingHash);
+                _reading);
 
         return true;
     }
@@ -150,12 +151,47 @@ contract Freeelio {
         returns (bool success)
     {
         Project project = Project(_projectAddr);
-        if (!project.fund.value(msg.value).gas(100000)(msg.sender)) {
+        if (!project.fund.value(msg.value).gas(300000)(msg.sender)) {
             revert();
         } //~0.27 cents
 
         ContributionLog(msg.sender, _projectAddr, msg.value);
         return true;
+    }
+
+    // <projectAddr> || "0x755014da263fc47d238078bb47d217f743e5b6a5", "0xca35b7d915458ef540ade6068dfe2f44e8fa733c"
+    function getProviderReadingCount(address _projectAddr, address _providerAddr)
+        public
+        view
+        returns(uint256 count)
+    {
+        Project project = Project(_projectAddr);
+
+        return project.getProviderReadingCount(_providerAddr);
+    }
+
+    // "0x755014da263fc47d238078bb47d217f743e5b6a5", "0xca35b7d915458ef540ade6068dfe2f44e8fa733c", 1 // index starts at zero
+    function getProviderReading(
+        address _projectAddr,
+        address _providerAddr,
+        uint256 _index)
+        public
+        view
+        returns(uint32[5] reading)
+    {
+        Project project = Project(_projectAddr);
+
+        return project.getProviderReading(_providerAddr, _index);
+    }
+
+    function getProviderName(address _projectAddr, address _providerAddr)
+        public
+        view
+        returns(bytes32 name)
+    {
+      Project project = Project(_projectAddr);
+
+      return project.getProviderName(_providerAddr);
     }
 
     function kill() public isOwner {

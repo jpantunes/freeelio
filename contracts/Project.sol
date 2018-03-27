@@ -62,11 +62,6 @@ contract Project {
         isOwner
         returns(bool success)
     {
-        require(_name != 0x00);
-        require(_description != 0x00);
-        require(_imageUrl != 0x00);
-        require(_apiURI != 0x00);
-
         provider[_providerAddr].name = _name;
         provider[_providerAddr].description = _description;
         provider[_providerAddr].imageUrl = _imageUrl;
@@ -91,7 +86,6 @@ contract Project {
         isProvider(_providerAddr)
         returns (bool success)
     {
-
         for (uint8 i = 0; i < _reading.length; i ++) {
             provider[_providerAddr].readings.push(_reading[i]);
             provider[_providerAddr].totalBoughtTk += _reading[i][3];
@@ -108,8 +102,6 @@ contract Project {
         payable
         returns (bool success)
     {
-        require(_patron != 0x00);
-
         patronage[_patron] += msg.value;
 
         return true;
@@ -134,6 +126,15 @@ contract Project {
     {
         return provider[_providerAddr].readings.length;
     }
+
+    function getProviderName(address _providerAddr)
+        external
+        view
+        returns(bytes32 name)
+    {
+        return provider[_providerAddr].name;
+    }
+
 
     function suspendProject()
         external
